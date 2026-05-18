@@ -38,6 +38,8 @@ class MappedInputManager {
   bool isPressed(Button button) const;
   bool wasAnyPressed() const;
   bool wasAnyReleased() const;
+  bool wasTilted(const Button button) const;
+  bool wasAnyTilted() const;
   unsigned long getHeldTime() const;
   Labels mapLabels(const char* back, const char* confirm, const char* previous, const char* next) const;
   // Returns the raw front button index that was pressed this frame (or -1 if none).
@@ -48,5 +50,5 @@ class MappedInputManager {
   HalTiltSensor& tiltSensor;
 
   bool mapButton(Button button, bool (HalGPIO::*fn)(uint8_t) const) const;
-  bool mapButton(Button button, bool (HalTiltSensor::*fn)(uint8_t) const) const;
+  bool mapButton(Button button, bool (HalTiltSensor::*fn)(uint8_t)) const;
 };

@@ -24,21 +24,15 @@ class HalTiltSensor {
   uint8_t _i2cAddr = 0;
 
   // Tilt gesture state machine
-  bool _tiltForwardEvent = false;    // Consumed by wasTiltedForward()
-  bool _tiltBackEvent = false;       // Consumed by wasTiltedBack()
-  bool _tiltXNegativeEvent = false;  // Consumed by wasTiltedXNegative()
-  bool _tiltXPositiveEvent = false;  // Consumed by wasTiltedXPositive()
-  bool _tiltYNegativeEvent = false;  // Consumed by wasTiltedYNegative()
-  bool _tiltYPositiveEvent = false;  // Consumed by wasTiltedYPositive()
-  bool _tiltZNegativeEvent = false;  // Consumed by wasTiltedZNegative()
-  bool _tiltZPositiveEvent = false;  // Consumed by wasTiltedZPositive()
-  uint8_t _tiltedState = 0;          // Consumed by wasTilted()
-  bool _hadActivity = false;         // Non-consuming flag for sleep timer
-  bool _inTilt = false;              // Currently tilted past threshold
-  bool _isAwake = false;             // Tracks power state
-  unsigned long _initMs = 0;         // Timestamp of sensor init
-  unsigned long _lastTiltMs = 0;     // Debounce / cooldown
-  unsigned long _wakeMs = 0;         // Timestamp of last wake() for stabilization
+  bool _tiltForwardEvent = false;  // Consumed by wasTiltedForward()
+  bool _tiltBackEvent = false;     // Consumed by wasTiltedBack()
+  uint8_t _tiltedState = 0;        // Consumed by wasTilted()
+  bool _hadActivity = false;       // Non-consuming flag for sleep timer
+  bool _inTilt = false;            // Currently tilted past threshold
+  bool _isAwake = false;           // Tracks power state
+  unsigned long _initMs = 0;       // Timestamp of sensor init
+  unsigned long _lastTiltMs = 0;   // Debounce / cooldown
+  unsigned long _wakeMs = 0;       // Timestamp of last wake() for stabilization
 
   // Tuning constants
   static constexpr float RATE_THRESHOLD_DPS = 270.0f;      // Deg/sec speed to trigger flick
@@ -104,6 +98,10 @@ class HalTiltSensor {
   // Consumed on read.
   bool wasTilted(uint8_t tiltIndex);
 
+  // Returns once per tilt gesture
+  // Does not consume on read.
+  bool wasAnyTilted();
+
   // Non-consuming: true if any tilt activity occurred since last call.
   // Used to reset the auto-sleep inactivity timer.
   bool hadActivity();
@@ -112,10 +110,10 @@ class HalTiltSensor {
   void clearPendingEvents();
 
   // Tilt(button) indices
-  static constexpr uint8_t TILT_X_POS = 0;
-  static constexpr uint8_t TILT_X_NEG = 1;
-  static constexpr uint8_t TILT_Y_POS = 2;
-  static constexpr uint8_t TILT_Y_NEG = 3;
-  static constexpr uint8_t TILT_Z_POS = 4;
-  static constexpr uint8_t TILT_Z_NEG = 5;
+  static constexpr uint8_t TILT_X_NEG = 0;
+  static constexpr uint8_t TILT_X_POS = 1;
+  static constexpr uint8_t TILT_Y_NEG = 2;
+  static constexpr uint8_t TILT_Y_POS = 3;
+  static constexpr uint8_t TILT_Z_NEG = 4;
+  static constexpr uint8_t TILT_Z_POS = 5;
 };

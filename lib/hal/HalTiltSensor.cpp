@@ -162,30 +162,30 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
     return;
   }
 
-  // Map the gyro axis to left/right tilt based on reader orientation.
-  // On the X3 PCB: X axis = left/right in portrait, Y axis = left/right in landscape.
-  float tiltAxis;
-  switch (orientation) {
-    case CrossPointOrientation::PORTRAIT:
-      tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? -gx : gx;
-      break;
-    case CrossPointOrientation::INVERTED:
-      tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? gx : -gx;
-      break;
-    case CrossPointOrientation::LANDSCAPE_CW:
-      tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? gy : -gy;
-      break;
-    case CrossPointOrientation::LANDSCAPE_CCW:
-      tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? -gy : gy;
-      break;
-    default:
-      tiltAxis = gx;
-      break;
-  }
+  // // Map the gyro axis to left/right tilt based on reader orientation.
+  // // On the X3 PCB: X axis = left/right in portrait, Y axis = left/right in landscape.
+  // float tiltAxis;
+  // switch (orientation) {
+  //   case CrossPointOrientation::PORTRAIT:
+  //     tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? -gx : gx;
+  //     break;
+  //   case CrossPointOrientation::INVERTED:
+  //     tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? gx : -gx;
+  //     break;
+  //   case CrossPointOrientation::LANDSCAPE_CW:
+  //     tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? gy : -gy;
+  //     break;
+  //   case CrossPointOrientation::LANDSCAPE_CCW:
+  //     tiltAxis = mode == CrossPointTiltPageTurn::TILT_INVERTED ? -gy : gy;
+  //     break;
+  //   default:
+  //     tiltAxis = gx;
+  //     break;
+  // }
 
   if (_inTilt) {
     // Wait for device to return to neutral before allowing next trigger
-    if (fabsf(tiltAxis) < NEUTRAL_RATE_DPS) {
+    if (fabsf(gx) < NEUTRAL_RATE_DPS || fabsf(gy) < NEUTRAL_RATE_DPS || fabsf(gz) < NEUTRAL_RATE_DPS) {
       _inTilt = false;
     }
   } else {
@@ -194,7 +194,6 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
     if ((now - _lastTiltMs) >= COOLDOWN_MS) {
       if (gx > RATE_THRESHOLD_DPS) {
         _tiltedState |= (1 << TILT_X_POS);
-        // _tiltXPositiveEvent = true;
         _hadActivity = true;
         _inTilt = true;
         _lastTiltMs = now;
@@ -210,14 +209,12 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
 
       if (gy > RATE_THRESHOLD_DPS) {
         _tiltedState |= (1 << TILT_Y_POS);
-        // _tiltYPositiveEvent = true;
         _hadActivity = true;
         _inTilt = true;
         _lastTiltMs = now;
         LOG_INF("GYR", "Y-axis=(%.1f) dps", gy);
       } else if (gy < -RATE_THRESHOLD_DPS) {
         _tiltedState |= (1 << TILT_Y_NEG);
-        // _tiltYNegativeEvent = true;
         _hadActivity = true;
         _inTilt = true;
         _lastTiltMs = now;
@@ -226,14 +223,12 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
 
       if (gz > RATE_THRESHOLD_DPS) {
         _tiltedState |= (1 << TILT_Z_POS);
-        // _tiltZPositiveEvent = true;
         _hadActivity = true;
         _inTilt = true;
         _lastTiltMs = now;
         LOG_INF("GYR", "Z-axis=(%.1f) dps", gz);
       } else if (gz < -RATE_THRESHOLD_DPS) {
         _tiltedState |= (1 << TILT_Z_NEG);
-        _tiltZNegativeEvent = true;
         _hadActivity = true;
         _inTilt = true;
         _lastTiltMs = now;
@@ -258,37 +253,11 @@ void HalTiltSensor::update(const uint8_t mode, const uint8_t orientation, const 
 
 bool HalTiltSensor::wasTilted(uint8_t tiltIndex) {
   const bool val = _tiltedState & (1 << tiltIndex);
-  // switch (tiltIndex) {
-  //   case TILT_X_NEG:
-  //     val = _tiltXNegativeEvent;
-  //     break;
-  //   case TILT_X_POS:
-  //     val = _tiltXPositiveEvent;
-  //     break;
-  //   case TILT_Y_NEG:
-  //     val = _tiltYNegativeEvent;
-  //     break;
-  //   case TILT_Y_POS:
-  //     val = _tiltYPositiveEvent;
-  //     break;
-  //   case TILT_Z_NEG:
-  //     val = _tiltZNegativeEvent;
-  //     break;
-  //   case TILT_Z_POS:
-  //     val = _tiltZPositiveEvent;
-  //     break;
-  //   default:
-  //     val = false;
-  // }
-  // _tiltXNegativeEvent = false;
-  // _tiltXPositiveEvent = false;
-  // _tiltYNegativeEvent = false;
-  // _tiltYPositiveEvent = false;
-  // _tiltZNegativeEvent = false;
-  // _tiltZPositiveEvent = false;
   _tiltedState = 0;
   return val;
 }
+
+bool HalTiltSensor::wasAnyTilted() { return _tiltedState > 0; }
 
 // bool HalTiltSensor::wasTiltedForward() {
 //   const bool val = _tiltForwardEvent;
@@ -309,14 +278,7 @@ bool HalTiltSensor::hadActivity() {
 }
 
 void HalTiltSensor::clearPendingEvents() {
-  // _tiltForwardEvent = false;
-  // _tiltBackEvent = false;
-  _tiltXNegativeEvent = false;
-  _tiltXPositiveEvent = false;
-  _tiltYNegativeEvent = false;
-  _tiltYPositiveEvent = false;
-  _tiltZNegativeEvent = false;
-  _tiltZPositiveEvent = false;
+  _tiltedState = 0;
   _hadActivity = false;
   // Intentionally preserve _inTilt so a held tilt doesn't retrigger on next poll
 }

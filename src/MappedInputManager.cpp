@@ -1,6 +1,7 @@
 #include "MappedInputManager.h"
 
 #include "CrossPointSettings.h"
+#include "HalTiltSensor.h"
 
 namespace {
 using ButtonIndex = uint8_t;
@@ -52,10 +53,27 @@ bool MappedInputManager::mapButton(const Button button, bool (HalGPIO::*fn)(uint
     default:
       return false;
   }
+  return false;
 }
 
-bool MappedInputManager::mapButton(const Button button, bool (HalTiltSensor::*fn)(uint8_t) const) const {
-  SETTINGS.tiltPageTurn;
+bool MappedInputManager::mapButton(const Button button, bool (HalTiltSensor::*fn)(uint8_t)) const {
+  switch (button) {
+    case Button::TiltRight:
+      return (tiltSensor.*fn)(HalTiltSensor::TILT_X_POS);
+    case Button::TiltLeft:
+      return (tiltSensor.*fn)(HalTiltSensor::TILT_X_NEG);
+    case Button::TiltUp:
+      return (tiltSensor.*fn)(HalTiltSensor::TILT_Y_POS);
+    case Button::TiltDown:
+      return (tiltSensor.*fn)(HalTiltSensor::TILT_Y_NEG);
+    case Button::RotateRight:
+      return (tiltSensor.*fn)(HalTiltSensor::TILT_Z_POS);
+    case Button::RotateLeft:
+      return (tiltSensor.*fn)(HalTiltSensor::TILT_Z_NEG);
+    default:
+      return false;
+  }
+  // SETTINGS.tiltPageTurn;
 
   // Map the gyro axis to left/right tilt based on reader orientation.
   // On the X3 PCB: X axis = left/right in portrait, Y axis = left/right in landscape.
@@ -90,6 +108,10 @@ bool MappedInputManager::isPressed(const Button button) const { return mapButton
 bool MappedInputManager::wasAnyPressed() const { return gpio.wasAnyPressed(); }
 
 bool MappedInputManager::wasAnyReleased() const { return gpio.wasAnyReleased(); }
+
+bool MappedInputManager::wasTilted(const Button button) const { return mapButton(button, &HalTiltSensor::wasTilted); }
+
+bool MappedInputManager::wasAnyTilted() const { return tiltSensor.wasAnyTilted(); }
 
 unsigned long MappedInputManager::getHeldTime() const { return gpio.getHeldTime(); }
 
