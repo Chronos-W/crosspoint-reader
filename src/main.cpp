@@ -428,7 +428,7 @@ void setup() {
       activityManager.goToBoot();
       break;
   }
-
+  // CONTROLNOTE - Do not have to worry about Button::Back here.  Used to get out of a bad situation.
   if (recoveryFirmwareMode) {
     // Skip normal home/reader routing: jump straight into the SD firmware picker.
     activityManager.replaceActivity(
@@ -523,6 +523,7 @@ void loop() {
 
   static bool screenshotButtonsReleased = true;
   static bool screenshotComboActive = false;
+  // CONTROLNOTE - Move this into takeScreenshot() in ControlActionSettings
   if (gpio.isPressed(HalGPIO::BTN_POWER) && gpio.isPressed(HalGPIO::BTN_DOWN)) {
     screenshotComboActive = true;
     if (screenshotButtonsReleased) {
@@ -552,7 +553,8 @@ void loop() {
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
     return;
   }
-
+  // CONTROLNOTE - I think this is the sleep action.  Convert into sleep() and move into ControlActionSettings
+  // singleton.
   if (millis() >= allowSleepAt && gpio.isPressed(HalGPIO::BTN_POWER) &&
       gpio.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
     // If the screenshot combination is potentially being pressed, don't sleep
@@ -563,7 +565,7 @@ void loop() {
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
     return;
   }
-
+  // CONTROLNOTE - Convert this into forceRefresh() and move into ControlActionSettings singleton.
   // Refresh screen when power button is short-pressed with FORCE_REFRESH setting.
   if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FORCE_REFRESH &&
       mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {

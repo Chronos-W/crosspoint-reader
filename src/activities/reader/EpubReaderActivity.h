@@ -3,9 +3,12 @@
 #include <Epub/FootnoteEntry.h>
 #include <Epub/Section.h>
 
+#include <functional>
 #include <optional>
 
 #include "EpubReaderMenuActivity.h"
+#include "I18nKeys.h"
+#include "MappedInputManager.h"
 #include "ProgressMapper.h"
 #include "activities/Activity.h"
 
@@ -79,4 +82,33 @@ class EpubReaderActivity final : public Activity {
   bool isReaderActivity() const override { return true; }
   ScreenshotInfo getScreenshotInfo() const override;
   CrossPointPosition getCurrentPosition() const;
+
+ public:
+  // The default mapping between buttons with press type combination and StrId (action) for the device.
+  std::map<MappedInputManager::ButtonAndPressType, StrId> DefaultButtonToStrIdMap;
+
+  // The default mapping between tilts with gesture type combination and StrId (action) for the device.
+  std::map<MappedInputManager::TiltAndGestureType, StrId> DefaultTiltToStrIdMap;
+
+  // Use StrId to determine the action to trigger.
+  void doActivityAction(StrId actionName);
+
+  // The set of button with press type combination that is not allowed to be assigned by user for this activity.
+  // For example, prevent users from being able to assign Fronts Buttons with Short press type from the default
+  // navigation actions to other actions.
+  std::set<MappedInputManager::ButtonAndPressType> ReservedButtonPressType;
+
+  // The set of tilt with gesture type combination that is not allowed to be assigned by user for this activity.
+  std::set<MappedInputManager::ButtonAndPressType> ReservedTiltGestureType;
+
+ private:
+  // CONTROLNOTE - Methods to turn into actions.
+  // And addBookmark() needs to be added too.
+  void nextPage();
+  void previousPage();
+  void skipChapterNext();
+  void skipChapterPrevious();
+  void enterReaderMenu();
+  void enterFileSelection();
+  void enterHome();
 };

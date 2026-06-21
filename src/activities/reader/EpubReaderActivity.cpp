@@ -226,6 +226,7 @@ void EpubReaderActivity::loop() {
   }
 
   if (automaticPageTurnActive) {
+    // CONTROLNOTE - Move this into navigation methods. automaticPageTurnActive is class variable.
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) ||
         mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       automaticPageTurnActive = false;
@@ -256,6 +257,7 @@ void EpubReaderActivity::loop() {
     requestUpdate();
   }
 
+  // CONTROLNOTE - Convert into enterReaderMenu(). ignoreNextConfirmRelease is class variable.
   // Enter reader menu activity.
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (ignoreNextConfirmRelease) {
@@ -283,7 +285,8 @@ void EpubReaderActivity::loop() {
                              });
     }
   }
-
+  // CONTROLNOTE - Move showBookmarkMessage and bookmarkMessageTime are class variables. Just move them into
+  // addBookmark().
   if (mappedInput.isPressed(MappedInputManager::Button::Confirm) &&
       mappedInput.getHeldTime() >= ReaderUtils::BOOKMARK_HOLD_MS) {
     if (!showBookmarkMessage) {
@@ -294,13 +297,13 @@ void EpubReaderActivity::loop() {
       requestUpdate();
     }
   }
-
+  // CONTROLNOTE - Convert into enterFileSelection()
   // Long press BACK (1s+) goes to file selection
   if (mappedInput.isPressed(MappedInputManager::Button::Back) && mappedInput.getHeldTime() >= ReaderUtils::GO_HOME_MS) {
     activityManager.goToFileBrowser(epub ? epub->getPath() : "");
     return;
   }
-
+  // CONTROLNOTE - Convert into enterHome()
   // Short press BACK goes directly to home (or restores position if viewing footnote)
   if (mappedInput.wasReleased(MappedInputManager::Button::Back) &&
       mappedInput.getHeldTime() < ReaderUtils::GO_HOME_MS) {
@@ -311,7 +314,9 @@ void EpubReaderActivity::loop() {
     onGoHome();
     return;
   }
-
+  // CONTROLNOTE - Don't need new method since there's detectPageTurn().  Change prevTriggered, nextTriggered, and
+  // fromTilt to class variables in ReaderUtils. Actually, just create a new nextPage() and previousPage() and get rid
+  // of detectPageTurn()
   const auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput);
   if (!prevTriggered && !nextTriggered) {
     return;
@@ -329,21 +334,22 @@ void EpubReaderActivity::loop() {
     }
     return;
   }
-
+  // CONTROLNOTE - longPress is used for Long Press behavior.  Get rid of this since it will be superceded by new
+  // implementation. So it'll just be action -> next chapter with press type -> long press
   const bool longPress = !fromTilt && mappedInput.getHeldTime() > ReaderUtils::SKIP_HOLD_MS;
-
+  // CONTROLNOTE - When TakeScreenshot() is added to ControlActions.h as a global activity, then this can be removed.
   // Don't skip chapter after screenshot
   if (gpio.wasReleased(HalGPIO::BTN_POWER) && gpio.wasReleased(HalGPIO::BTN_DOWN)) {
     return;
   }
-
+  // CONTROLNOTE - Add this into skipChapterPrevious(). Holding previous changes current page to beginning of chapter.
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.CHAPTER_SKIP) {
     if (!nextTriggered && section && section->currentPage > 0) {
       section->currentPage = 0;
       requestUpdate();
       return;
     }
-
+    // CONTROLNOTE - Add this into skipChapterPrevious() and skipChapterNext().
     // We don't want to delete the section mid-render, so grab the semaphore
     {
       RenderLock lock(*this);
@@ -358,7 +364,7 @@ void EpubReaderActivity::loop() {
     requestUpdate();
     return;
   }
-
+  // CONTROLNOTE - Convert this into ChangeOrientation()
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.ORIENTATION_CHANGE) {
     const uint8_t newOrientation =
         nextTriggered ? (SETTINGS.orientation - 1 + SETTINGS.ORIENTATION_COUNT) % SETTINGS.ORIENTATION_COUNT
