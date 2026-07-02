@@ -9,6 +9,7 @@
 #include <string>
 
 #include "BookmarkEntry.h"
+#include "ControlActionSettings.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
 #include "OpdsServerStore.h"
@@ -450,5 +451,79 @@ bool JsonSettingsIO::loadBookmarks(std::vector<BookmarkEntry>& bookmarks, const 
   }
 
   LOG_DBG("BKM", "Loaded %zu bookmarks from file", bookmarks.size());
+  return true;
+}
+
+// ---- Control Action Settings ----
+
+// CONTROLNOTE - New save and load control action settings
+// CONTROLNOTEWIP
+bool JsonSettingsIO::saveControlActionSettings(const ControlActionSettings& s, const char* path) {
+  JsonDocument doc;
+
+  for (const auto& info : getControlActionSettingsList()) {
+    if (!info.key) continue;
+
+    if (info.stringOffset) {
+      const char* strPtr = (const char*)&s + info.stringOffset;
+      doc[info.key] = strPtr;
+    } else {
+      doc[info.key] = s.*(info.valuePtr);
+    }
+  }
+  String json;
+  serializeJson(doc, json);
+  return Storage.writeFile(path, json);
+}
+
+bool JsonSettingsIO::loadControlActionSettings(ControlActionSettings& s, const char* json, bool* needsResave) {
+  if (needsResave) *needsResave = false;
+  JsonDocument doc;
+  auto error = deserializeJson(doc, json);
+  if (error) {
+    LOG_ERR("CAS", "JSON parse error: %s", error.c_str());
+    return false;
+  }
+
+  auto clamp = [](uint8_t val, uint8_t maxVal, uint8_t def) -> uint8_t { return val < maxVal ? val : def; };
+
+  for (const auto& info : getControlActionSettingsList()) {
+    if (!info.key) continue;
+    // Dynamic entries (KOReader etc.) are stored in their own files — skip.
+    if (!info.valuePtr && !info.stringOffset) continue;
+
+    if (info.stringOffset) {
+      const char* strPtr = (const char*)&s + info.stringOffset;
+      const std::string fieldDefault = strPtr;  // current buffer = struct-initializer default
+      std::string val;
+      val = doc[info.key] | fieldDefault;
+      char* destPtr = (char*)&s + info.stringOffset;
+      if (info.stringMaxLen == 0) {
+        LOG_ERR("CAS", "Misconfigured SettingInfo: stringMaxLen is 0 for key '%s'", info.key);
+        destPtr[0] = '\0';
+        if (needsResave) *needsResave = true;
+        continue;
+      }
+      strncpy(destPtr, val.c_str(), info.stringMaxLen - 1);
+      destPtr[info.stringMaxLen - 1] = '\0';
+    } else {
+      const uint8_t fieldDefault = s.*(info.valuePtr);  // struct-initializer default, read before we overwrite it
+      uint8_t v = doc[info.key] | fieldDefault;
+      if (info.type == SettingType::ENUM) {
+        v = clamp(v, (uint8_t)info.enumValues.size(), fieldDefault);
+      } else if (info.type == SettingType::TOGGLE) {
+        v = clamp(v, (uint8_t)2, fieldDefault);
+      } else if (info.type == SettingType::VALUE) {
+        if (v < info.valueRange.min)
+          v = info.valueRange.min;
+        else if (v > info.valueRange.max)
+          v = info.valueRange.max;
+      }
+      s.*(info.valuePtr) = v;
+    }
+  }
+
+  LOG_DBG("CAS", "Control Action Settings loaded from file");
+
   return true;
 }

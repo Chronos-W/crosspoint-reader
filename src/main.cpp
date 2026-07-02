@@ -523,7 +523,7 @@ void loop() {
 
   static bool screenshotButtonsReleased = true;
   static bool screenshotComboActive = false;
-  // CONTROLNOTE - Move this into takeScreenshot() in ControlActionSettings
+  // CONTROLNOTE - Convert this into bool isTakeScreenshotTriggered
   if (gpio.isPressed(HalGPIO::BTN_POWER) && gpio.isPressed(HalGPIO::BTN_DOWN)) {
     screenshotComboActive = true;
     if (screenshotButtonsReleased) {
@@ -553,7 +553,7 @@ void loop() {
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
     return;
   }
-  // CONTROLNOTE - I think this is the sleep action.  Convert into sleep() and move into ControlActionSettings
+  // CONTROLNOTE - I think this is the sleep action.  Convert bool isSleepActionTriggered.
   // singleton.
   if (millis() >= allowSleepAt && gpio.isPressed(HalGPIO::BTN_POWER) &&
       gpio.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
@@ -565,7 +565,7 @@ void loop() {
     // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
     return;
   }
-  // CONTROLNOTE - Convert this into forceRefresh() and move into ControlActionSettings singleton.
+  // CONTROLNOTE - Convert this into bool isForceRefreshTriggered.
   // Refresh screen when power button is short-pressed with FORCE_REFRESH setting.
   if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FORCE_REFRESH &&
       mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {

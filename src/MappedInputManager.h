@@ -15,7 +15,9 @@ class GfxRenderer;
 class MappedInputManager {
  public:
   enum class Button { Back, Confirm, Left, Right, Up, Down, Power, PageBack, PageForward, NavNext, NavPrevious };
-  enum class Tilt { TiltLeft, TiltRight, TiltUp, TiltDown, RotateLeft, RotateRight };
+
+  // In the future, can consider adding TiltUp, TiltDown, RotateLeft, RotateRight.
+  enum class Tilt { TiltLeft, TiltRight };
 
   struct Labels {
     const char* btn1;
@@ -85,10 +87,8 @@ class MappedInputManager {
 
   // When activation conditions for the control action are fulfilled, perform the control action. Only one control
   // action can be executing at any moment.
-  void processInput(std::map<std::set<Button>, std::vector<StrId>> map) const;
+  StrId processInputButton(std::map<std::set<Button>, std::vector<StrId>> map) const;
   // Returns the raw front button index that was pressed this frame (or -1 if none).
-
-  void activateControlAction(StrId actionName);
 
   // Returns the raw button index that was pressed this frame (or -1 if none).
   int getPressedRawButton() const;

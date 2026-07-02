@@ -3,6 +3,7 @@
 #include "I18nKeys.h"
 #include "MappedInputManager.h"
 #include "activities/Activity.h"
+#include "activities/reader/EpubReaderActivity.h"
 #include "util/ButtonNavigator.h"
 
 class ControlActionSettingsActivity final : public Activity {
@@ -37,9 +38,18 @@ class ControlActionSettingsActivity final : public Activity {
     ITEM_COUNT
   };
 
-  const StrId menuItemNames[ITEM_COUNT] = {
-      StrId::STR_BACK_BUTTON,  StrId::STR_CONFIRM_BUTTON, StrId::STR_LEFT_BUTTON,
-      StrId::STR_RIGHT_BUTTON, StrId::STR_UP_BUTTON,      StrId::STR_DOWN_BUTTON,
-      StrId::STR_POWER_BUTTON, StrId::STR_LEFT_TILT,      StrId::STR_RIGHT_TILT,
-  };
+  const StrId menuItemNames[ITEM_COUNT] = {StrId::STR_BACK_BUTTON,  StrId::STR_CONFIRM_BUTTON, StrId::STR_LEFT_BUTTON,
+                                           StrId::STR_RIGHT_BUTTON, StrId::STR_UP_BUTTON,      StrId::STR_DOWN_BUTTON,
+                                           StrId::STR_POWER_BUTTON, StrId::STR_LEFT_TILT,      StrId::STR_RIGHT_TILT};
+
+ public:
+  // Back
+  void enterSettings();
+  // Confirm
+  void toggleOption();
+  void nextMenuItem();
+  void previousMenuItem();
+  void enterAddButton();
+  void enterAddTilt();
+  void enterDeleteAction();
 };

@@ -38,7 +38,10 @@ struct PageTurnResult {
   bool next;
   bool fromTilt;
 };
-
+// CONTROLNOTE - Lots of conditions used to check if certain button presses or tilts have happened.
+// Includes orientation logic here to figure out if left button is previous or next page.
+// Delete usePress.  Will become obsolete.
+// Delete powerTurn.  Will become obsolete.
 inline PageTurnResult detectPageTurn(const MappedInputManager& input) {
   const bool usePress = SETTINGS.longPressButtonBehavior == SETTINGS.OFF;
   const bool tiltNext = SETTINGS.tiltPageTurn && halTiltSensor.wasTiltedForward();

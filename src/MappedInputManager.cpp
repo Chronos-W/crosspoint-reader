@@ -141,3 +141,237 @@ int MappedInputManager::getPressedRawButton() const {
   }
   return -1;
 }
+
+StrId MappedInputManager::processInputButton(std::map<std::set<Button>, std::vector<ControlAction>> buttonMap) const {
+  static bool buttonPressedActivityEnter = false;
+  static bool isActionExecuting = false;
+
+  static bool isShortPressQueued = false;
+  static bool isLongPressHeld = false;
+  static bool isRepeatWhenHeld = false;
+  std::set<Button> isPressedButtons = {};
+  std::set<Button> wasPressedButtons = {};
+  std::set<Button> wasReleasedButtons = {};
+  std::map<PRESS_TYPE, ControlAction> isPressedActionMap = {};
+  std::map<PRESS_TYPE, ControlAction> wasPressedTypeMap = {};
+  std::map<PRESS_TYPE, ControlAction> wasReleasedActionMap = {};
+  bool hasShortPress = false;
+  bool hasLongPress = false;
+  bool hasDoublePress = false;
+  static ControlAction currentlyExecutingAction;
+  static uint16_t shortPressQueuedStartTime;
+  static uint16_t actionExecuteTime;
+  static std::set<Button> lastButtonsShortPressed;
+  static std::set<Button> lastButtonsIsPressed;
+
+  // When entering an activity, a button must have been pressed at least once before continuing.
+  // This is so continuing to hold a button when exiting from a previous activity won't accidentally
+  // cause a control action to be executed when entering another activity.
+  if (MappedInputManager::wasAnyPressed() && !buttonPressedActivityEnter) {
+    buttonPressedActivityEnter = true;
+  } else if (!buttonPressedActivityEnter) {
+    return;
+  }
+
+  // When no action is being executed, based on which buttons have been pressed/released check that activation
+  // condition for actions have been fulfilled. If fulfilled, set the action as the currently executing action.
+  // Figure out which action to execute by determining which buttons are being interacted with and then checking
+  // if press type condition has been fulfilled.
+  if (!isActionExecuting) {
+    if (!MappedInputManager::isAnyPressed() && !MappedInputManager::wasAnyReleased() && !isShortPressQueued) {
+      return;
+    }
+
+    if (MappedInputManager::isAnyPressed()) {
+      isPressedButtons = getButtonsIsPressed();
+      for (ControlAction action : buttonMap[isPressedButtons]) {
+        for (ButtonAndPressTypeSettings setting : action.buttonPressTypeSettings) {
+          if (setting.buttonAndPressType.buttons == isPressedButtons) {
+            isPressedActionMap.emplace(setting.buttonAndPressType.pressType, action);
+            if (setting.buttonAndPressType.pressType == PRESS_TYPE::DOUBLE) {
+              hasDoublePress = true;
+            } else if (setting.buttonAndPressType.pressType == PRESS_TYPE::LONG) {
+              hasLongPress = true;
+            }
+          }
+        }
+      }
+      // If button(s) has been pressed in previous and current update, that means button(s) is being held.
+      if (lastButtonsIsPressed == isPressedButtons) {
+        isLongPressHeld = true;
+      } else {
+        isLongPressHeld = false;
+      }
+      lastButtonsIsPressed = isPressedButtons;
+    }
+
+    if (MappedInputManager::wasAnyPressed()) {
+      wasPressedButtons = getButtonsWasPressed();
+      for (ControlAction action : buttonMap[wasPressedButtons]) {
+        for (ButtonAndPressTypeSettings setting : action.buttonPressTypeSettings) {
+          if (setting.buttonAndPressType.buttons == wasPressedButtons) {
+            wasPressedTypeMap.emplace(setting.buttonAndPressType.pressType, action);
+            if (setting.buttonAndPressType.pressType == PRESS_TYPE::DOUBLE) {
+              hasDoublePress = true;
+            } else if (setting.buttonAndPressType.pressType == PRESS_TYPE::LONG) {
+              hasLongPress = true;
+            }
+          }
+        }
+      }
+    }
+
+    if (MappedInputManager::wasAnyReleased()) {
+      wasReleasedButtons = getButtonsWasReleased();
+      for (ControlAction action : buttonMap[wasReleasedButtons]) {
+        for (ButtonAndPressTypeSettings setting : action.buttonPressTypeSettings) {
+          if (setting.buttonAndPressType.buttons == wasReleasedButtons) {
+            wasReleasedActionMap.emplace(setting.buttonAndPressType.pressType, action);
+            if (setting.buttonAndPressType.pressType == PRESS_TYPE::DOUBLE) {
+              hasDoublePress = true;
+            } else if (setting.buttonAndPressType.pressType == PRESS_TYPE::LONG) {
+              hasLongPress = true;
+            }
+          }
+        }
+      }
+      isLongPressHeld = false;
+    }
+
+    // Activation conditions are fulfilled differently depending on the press types that have been associated with a set
+    // of button(s). For example: If there's only a Short Press, then pressing the button will immediately trigger the
+    // action to turn the page. If there's both a Short Press and Double Press and button has not been pressed within
+    // doublePressDurationMSec of the first press, then Short Press to trigger the action to turn the page will
+    // activate.
+    if (hasDoublePress) {
+      if (hasLongPress) {
+        if (!isShortPressQueued) {
+          if (isLongPressHeld && getHeldTime() > isPressedActionMap[PRESS_TYPE::LONG].longPressDurationMSec) {
+            currentlyExecutingAction = isPressedActionMap[PRESS_TYPE::LONG];
+            for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+              if (setting.buttonAndPressType.pressType == PRESS_TYPE::LONG) {
+                isRepeatWhenHeld = setting.isRepeatWhenHeld;
+                break;
+              }
+            }
+            isLongPressHeld = false;
+          } else if (MappedInputManager::wasAnyReleased()) {
+            isShortPressQueued = true;
+            shortPressQueuedStartTime = millis();
+            lastButtonsShortPressed = wasReleasedButtons;
+          }
+        } else {
+          if (wasPressedButtons == lastButtonsShortPressed) {
+            currentlyExecutingAction = wasPressedTypeMap[PRESS_TYPE::DOUBLE];
+            for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+              if (setting.buttonAndPressType.pressType == PRESS_TYPE::DOUBLE) {
+                isRepeatWhenHeld = setting.isRepeatWhenHeld;
+                break;
+              }
+            }
+            isShortPressQueued = false;
+            lastButtonsShortPressed.clear();
+          } else if ((millis() - shortPressQueuedStartTime) >
+                     isPressedActionMap[PRESS_TYPE::DOUBLE].doublePressDurationMSec) {
+            currentlyExecutingAction = wasReleasedActionMap[PRESS_TYPE::SHORT];
+            for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+              if (setting.buttonAndPressType.pressType == PRESS_TYPE::SHORT) {
+                isRepeatWhenHeld = setting.isRepeatWhenHeld;
+                break;
+              }
+            }
+            isShortPressQueued = false;
+            lastButtonsShortPressed.clear();
+          }
+        }
+      } else {
+        if (!isShortPressQueued) {
+          if (MappedInputManager::wasAnyPressed()) {
+            isShortPressQueued = true;
+            shortPressQueuedStartTime = millis();
+            lastButtonsShortPressed = wasPressedButtons;
+          }
+        } else {
+          if (wasPressedButtons == lastButtonsShortPressed) {
+            currentlyExecutingAction = isPressedActionMap[PRESS_TYPE::DOUBLE];
+            for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+              if (setting.buttonAndPressType.pressType == PRESS_TYPE::DOUBLE) {
+                isRepeatWhenHeld = setting.isRepeatWhenHeld;
+                break;
+              }
+            }
+            isShortPressQueued = false;
+            lastButtonsShortPressed.clear();
+          } else if ((millis() - shortPressQueuedStartTime) >
+                     isPressedActionMap[PRESS_TYPE::DOUBLE].doublePressDurationMSec) {
+            currentlyExecutingAction = wasPressedTypeMap[PRESS_TYPE::SHORT];
+            for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+              if (setting.buttonAndPressType.pressType == PRESS_TYPE::SHORT) {
+                isRepeatWhenHeld = setting.isRepeatWhenHeld;
+                break;
+              }
+            }
+            isShortPressQueued = false;
+            lastButtonsShortPressed.clear();
+          }
+        }
+      }
+    } else {
+      if (hasLongPress) {
+        if (!isShortPressQueued) {
+          if (isLongPressHeld && getHeldTime() > isPressedActionMap[PRESS_TYPE::LONG].longPressDurationMSec) {
+            currentlyExecutingAction = isPressedActionMap[PRESS_TYPE::LONG];
+            LOG_DBG("INPUT", "LONG %i", getHeldTime());
+            for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+              if (setting.buttonAndPressType.pressType == PRESS_TYPE::LONG) {
+                isRepeatWhenHeld = setting.isRepeatWhenHeld;
+                break;
+              }
+            }
+            isLongPressHeld = false;
+          } else if (MappedInputManager::wasAnyReleased()) {
+            currentlyExecutingAction = wasReleasedActionMap[PRESS_TYPE::SHORT];
+            LOG_DBG("INPUT", "SHORT");
+            for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+              if (setting.buttonAndPressType.pressType == PRESS_TYPE::SHORT) {
+                isRepeatWhenHeld = setting.isRepeatWhenHeld;
+                break;
+              }
+            }
+          }
+        }
+      } else {
+        if (MappedInputManager::wasAnyPressed()) {
+          currentlyExecutingAction = wasPressedTypeMap[PRESS_TYPE::SHORT];
+          LOG_DBG("INPUT", "SHORT");
+          for (ButtonAndPressTypeSettings setting : currentlyExecutingAction.buttonPressTypeSettings) {
+            if (setting.buttonAndPressType.pressType == PRESS_TYPE::SHORT) {
+              isRepeatWhenHeld = setting.isRepeatWhenHeld;
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // When the currently executing action is set, execute immediately for the first time, and it may be repeatedly
+  // executed. Exit the executing action when button(s) is no longer being pressed.
+  if (!isActionExecuting && !currentlyExecutingAction.buttonPressTypeSettings.empty()) {
+    currentlyExecutingAction.doAction();
+    isActionExecuting = true;
+    actionExecuteTime = millis();
+  }
+  if (isActionExecuting) {
+    if (currentlyExecutingAction.canRepeatWhenHeld && isRepeatWhenHeld &&
+        (millis() - actionExecuteTime) > currentlyExecutingAction.repeatPeriodMSec) {
+      currentlyExecutingAction.doAction();
+      actionExecuteTime = millis();
+    }
+    if (!MappedInputManager::isAnyPressed()) {
+      currentlyExecutingAction = {};
+      isActionExecuting = false;
+      isRepeatWhenHeld = false;
+    }
+  }
+}

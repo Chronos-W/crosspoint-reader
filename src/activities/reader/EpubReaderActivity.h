@@ -88,30 +88,76 @@ class EpubReaderActivity final : public Activity {
 
  public:
   // The default mapping between buttons with press type combination and StrId (action) for the device.
-  std::map<MappedInputManager::ButtonAndPressType, StrId> DefaultButtonToStrIdMap;
+  std::map<MappedInputManager::ButtonAndPressType, StrId> DefaultButtonToStrIdMap = {
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Back},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+       StrId::STR_HOME_2},
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Confirm},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+       StrId::STR_READER_MENU},
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Left},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+       StrId::STR_PREV_PAGE_2},
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Right},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+       StrId::STR_NEXT_PAGE_2},
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Up},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+       StrId::STR_PREV_PAGE_2},
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Down},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+       StrId::STR_NEXT_PAGE_2},
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Back},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::LONG},
+       StrId::STR_BROWSE_FILES},
+      {MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Confirm},
+                                              MappedInputManager::BUTTON_PRESS_TYPE::LONG},
+       StrId::STR_ADD_BOOKMARK}};
 
   // The default mapping between tilts with gesture type combination and StrId (action) for the device.
-  std::map<MappedInputManager::TiltAndGestureType, StrId> DefaultTiltToStrIdMap;
+  std::map<MappedInputManager::TiltAndGestureType, StrId> DefaultTiltToStrIdMap = {
+      {MappedInputManager::TiltAndGestureType{MappedInputManager::Tilt::TiltLeft,
+                                              MappedInputManager::TILT_GESTURE_TYPE::SHORT},
+       StrId::STR_PREV_PAGE_2},
+      {MappedInputManager::TiltAndGestureType{MappedInputManager::Tilt::TiltRight,
+                                              MappedInputManager::TILT_GESTURE_TYPE::SHORT},
+       StrId::STR_NEXT_PAGE_2}};
 
   // Use StrId to determine the action to trigger.
   void doActivityAction(StrId actionName);
 
   // The set of button with press type combination that is not allowed to be assigned by user for this activity.
-  // For example, prevent users from being able to assign Fronts Buttons with Short press type from the default
-  // navigation actions to other actions.
-  std::set<MappedInputManager::ButtonAndPressType> ReservedButtonPressType;
+  std::set<MappedInputManager::ButtonAndPressType> ReservedButtonPressType = {
+      MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Back},
+                                             MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+      MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Confirm},
+                                             MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+      MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Left},
+                                             MappedInputManager::BUTTON_PRESS_TYPE::SHORT},
+      MappedInputManager::ButtonAndPressType{{MappedInputManager::Button::Right},
+                                             MappedInputManager::BUTTON_PRESS_TYPE::SHORT}};
 
   // The set of tilt with gesture type combination that is not allowed to be assigned by user for this activity.
-  std::set<MappedInputManager::ButtonAndPressType> ReservedTiltGestureType;
+  std::set<MappedInputManager::ButtonAndPressType> ReservedTiltGestureType = {};
+
+  std::set<StrId> userAssignableActionsReader{
+      StrId::STR_NEXT_PAGE_2,  StrId::STR_PREV_PAGE_2, StrId::STR_NEXT_CHAPTER,
+      StrId::STR_PREV_CHAPTER, StrId::STR_READER_MENU, StrId::STR_HOME_2,
+      StrId::STR_ADD_BOOKMARK, StrId::STR_FOOTNOTES,   StrId::STR_LONG_PRESS_BEHAVIOR_ORIENTATION,
+  };
+
+  void doAction(StrId actionName);
 
  private:
   // CONTROLNOTE - Methods to turn into actions.
   // And addBookmark() needs to be added too.
   void nextPage();
   void previousPage();
-  void skipChapterNext();
-  void skipChapterPrevious();
+  void nextChapter();
+  void previousChapter();
   void enterReaderMenu();
-  void enterFileSelection();
+  void enterBrowseFiles();
   void enterHome();
+  void enterFootnote();
+  void changeOrientation();
 };

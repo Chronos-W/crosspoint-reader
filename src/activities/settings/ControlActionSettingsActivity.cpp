@@ -35,4 +35,39 @@ void ControlActionSettingsActivity::render(RenderLock&&) {
   renderer.displayBuffer();
 }
 
-void ControlActionSettingsActivity::handleSelection() { CONTROLACTIONSETTINGS.saveToFile(); }
+void ControlActionSettingsActivity::handleSelection() {
+  switch (selectedIndex) {
+    case BACK_BUTTON:
+      SETTINGS.statusBarChapterPageCount = (SETTINGS.statusBarChapterPageCount + 1) % 2;
+      break;
+    case CONFIRM_BUTTON:
+      SETTINGS.statusBarBookProgressPercentage = (SETTINGS.statusBarBookProgressPercentage + 1) % 2;
+      break;
+    case LEFT_BUTTON:
+      SETTINGS.statusBarProgressBar = (SETTINGS.statusBarProgressBar + 1) % PROGRESS_BAR_ITEMS;
+      break;
+    case RIGHT_BUTTON:
+      SETTINGS.statusBarProgressBarThickness =
+          (SETTINGS.statusBarProgressBarThickness + 1) % PROGRESS_BAR_THICKNESS_ITEMS;
+      break;
+    case UP_BUTTON:
+      SETTINGS.statusBarTitle = (SETTINGS.statusBarTitle + 1) % TITLE_ITEMS;
+      break;
+    case DOWN_BUTTON:
+      SETTINGS.statusBarBattery = (SETTINGS.statusBarBattery + 1) % 2;
+      break;
+    case POWER_BUTTON:
+      SETTINGS.xtcStatusBarMode = (SETTINGS.xtcStatusBarMode + 1) % XTC_STATUS_BAR_ITEMS;
+      break;
+    case LEFT_TILT:
+      SETTINGS.statusBarClock = (SETTINGS.statusBarClock + 1) % 2;
+      break;
+    case RIGHT_TILT:
+      SETTINGS.clockFormat = (SETTINGS.clockFormat + 1) % CLOCK_FORMAT_ITEMS;
+      break;
+    default:
+      return;
+  }
+
+  CONTROLACTIONSETTINGS.saveToFile();
+}

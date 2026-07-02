@@ -8,6 +8,7 @@ class WifiCredentialStore;
 class RecentBooksStore;
 class OpdsServerStore;
 struct BookmarkEntry;
+class ControlActionSettings;
 
 namespace JsonSettingsIO {
 
@@ -34,5 +35,10 @@ bool loadOpds(OpdsServerStore& store, const char* json, bool* needsResave = null
 // Bookmarks
 bool saveBookmarks(const std::vector<BookmarkEntry>& bookmarks, const char* path);
 bool loadBookmarks(std::vector<BookmarkEntry>& bookmarks, const char* json);
+
+// CONTROLNOTE - New save and load control action settings
+// ControlActions
+bool saveControlActionSettings(const ControlActionSettings& s, const char* path);
+bool loadControlActionSettings(ControlActionSettings& s, const char* json, bool* needsResave = nullptr);
 
 }  // namespace JsonSettingsIO

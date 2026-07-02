@@ -20,11 +20,13 @@
 #include "BookmarkEntry.h"
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
+#include "Epub.h"
 #include "EpubReaderBookmarksActivity.h"
 #include "EpubReaderChapterSelectionActivity.h"
 #include "EpubReaderFootnotesActivity.h"
 #include "EpubReaderPercentSelectionActivity.h"
 #include "EpubReaderUtils.h"
+#include "I18nKeys.h"
 #include "KOReaderCredentialStore.h"
 #include "KOReaderSyncActivity.h"
 #include "MappedInputManager.h"
@@ -225,8 +227,14 @@ void EpubReaderActivity::loop() {
     pendingReadFolderMove = false;
   }
 
+  mappedInput.processControlActionConditions();
+  if (mappedInput.processExecutingConditions()) {
+    doAction(currentlyExecutingAction);
+  }
+
   if (automaticPageTurnActive) {
-    // CONTROLNOTE - Move this into navigation methods. automaticPageTurnActive is class variable.
+    // CONTROLNOTE - Move this into enterReaderMenu() and enterHome() methods. automaticPageTurnActive is class
+    // variable.
     if (mappedInput.wasReleased(MappedInputManager::Button::Confirm) ||
         mappedInput.wasReleased(MappedInputManager::Button::Back)) {
       automaticPageTurnActive = false;
@@ -257,10 +265,10 @@ void EpubReaderActivity::loop() {
     requestUpdate();
   }
 
-  // CONTROLNOTE - Convert into enterReaderMenu(). ignoreNextConfirmRelease is class variable.
-  // Enter reader menu activity on short-press Confirm. A long-press that fired a bound
-  // function (bookmark or KOReader sync) sets ignoreNextConfirmRelease so the release
-  // following the hold does not also open the menu.
+  // CONTROLNOTE - Convert into enterReaderMenu(). And delete ignoreNextConfirmRelease since that's tracking that the
+  // button has been released. RESOLVEDNOTE Enter reader menu activity on short-press Confirm. A long-press that fired a
+  // bound function (bookmark or KOReader sync) sets ignoreNextConfirmRelease so the release following the hold does not
+  // also open the menu.
   if (mappedInput.wasReleased(MappedInputManager::Button::Confirm)) {
     if (ignoreNextConfirmRelease) {
       ignoreNextConfirmRelease = false;
@@ -287,11 +295,11 @@ void EpubReaderActivity::loop() {
                              });
     }
   }
-  // CONTROLNOTE - Move showBookmarkMessage and bookmarkMessageTime are class variables. Just move them into
-  // addBookmark().
   // Long-press Confirm runs the user-selected function (SETTINGS.longPressMenuFunction).
   if (mappedInput.isPressed(MappedInputManager::Button::Confirm)) {
     switch (SETTINGS.longPressMenuFunction) {
+      // CONTROLNOTE - Move showBookmarkMessage and bookmarkMessageTime are class variables. Just move them into
+      // addBookmark().
       case CrossPointSettings::LP_MENU_BOOKMARK:
         // Hold ~0.4s drops a bookmark at the current page.
         if (mappedInput.getHeldTime() >= ReaderUtils::BOOKMARK_HOLD_MS && !showBookmarkMessage) {
@@ -302,6 +310,8 @@ void EpubReaderActivity::loop() {
           requestUpdate();
         }
         break;
+      // CONTROLNOTE - Get rid of this and just directly call launchKOReaderSync().  And get rid of
+      // ignoreNextConfirmRelease too since that just checks for button release.
       case CrossPointSettings::LP_MENU_KOSYNC:
         // Hold ~1s launches KOReader sync. If sync can't run (no credentials stored), fall
         // through so the normal Confirm-release still opens the reader menu.
@@ -317,13 +327,15 @@ void EpubReaderActivity::loop() {
         break;
     }
   }
-  // CONTROLNOTE - Convert into enterFileSelection()
+  // CONTROLNOTE - Convert into enterBrowseFiles()
+  // RESOLVEDNOTE
   // Long press BACK (1s+) goes to file selection
   if (mappedInput.isPressed(MappedInputManager::Button::Back) && mappedInput.getHeldTime() >= ReaderUtils::GO_HOME_MS) {
     activityManager.goToFileBrowser(epub ? epub->getPath() : "");
     return;
   }
   // CONTROLNOTE - Convert into enterHome()
+  // RESOLVEDNOTE
   // Short press BACK goes directly to home (or restores position if viewing footnote)
   if (mappedInput.wasReleased(MappedInputManager::Button::Back) &&
       mappedInput.getHeldTime() < ReaderUtils::GO_HOME_MS) {
@@ -334,11 +346,9 @@ void EpubReaderActivity::loop() {
     onGoHome();
     return;
   }
-  // CONTROLNOTE - Don't need new method since there's detectPageTurn().  Change prevTriggered, nextTriggered, and
-  // fromTilt to class variables in ReaderUtils. Actually, just create a new nextPage() and previousPage() and get rid
-  // of detectPageTurn()
-  // auto [prevTriggered, nextTriggered] = ReaderUtils::detectPageTurn(mappedInput);
 
+  // auto [prevTriggered, nextTriggered] = ReaderUtils::detectPageTurn(mappedInput);
+  // CONTROLNOTE - move into enterFootnote()
   // Handle short power button press for footnotes
   if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FOOTNOTES &&
       mappedInput.wasReleased(MappedInputManager::Button::Power) &&
@@ -362,7 +372,9 @@ void EpubReaderActivity::loop() {
     }
     return;
   }
-
+  // CONTROLNOTE - Don't need new method since there's detectPageTurn().  Change prevTriggered, nextTriggered, and
+  // fromTilt to class variables in ReaderUtils. Actually, just create a new nextPage() and previousPage() and get rid
+  // of detectPageTurn()
   const auto [prevTriggered, nextTriggered, fromTilt] = ReaderUtils::detectPageTurn(mappedInput);
   if (!prevTriggered && !nextTriggered) {
     return;
@@ -388,14 +400,14 @@ void EpubReaderActivity::loop() {
   if (gpio.wasReleased(HalGPIO::BTN_POWER) && gpio.wasReleased(HalGPIO::BTN_DOWN)) {
     return;
   }
-  // CONTROLNOTE - Add this into skipChapterPrevious(). Holding previous changes current page to beginning of chapter.
+  // CONTROLNOTE - Add this into previousChapter(). Holding previous changes current page to beginning of chapter.
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.CHAPTER_SKIP) {
     if (!nextTriggered && section && section->currentPage > 0) {
       section->currentPage = 0;
       requestUpdate();
       return;
     }
-    // CONTROLNOTE - Add this into skipChapterPrevious() and skipChapterNext().
+    // CONTROLNOTE - Add this into previousChapter() and nextChapter().
     // We don't want to delete the section mid-render, so grab the semaphore
     {
       RenderLock lock(*this);
@@ -410,7 +422,8 @@ void EpubReaderActivity::loop() {
     requestUpdate();
     return;
   }
-  // CONTROLNOTE - Convert this into ChangeOrientation()
+  // CONTROLNOTE - Convert this into orientationChange()
+  // RESOLVEDNOTE
   if (longPress && SETTINGS.longPressButtonBehavior == SETTINGS.ORIENTATION_CHANGE) {
     const uint8_t newOrientation =
         nextTriggered ? (SETTINGS.orientation - 1 + SETTINGS.ORIENTATION_COUNT) % SETTINGS.ORIENTATION_COUNT
@@ -1308,4 +1321,114 @@ CrossPointPosition EpubReaderActivity::getCurrentPosition() const {
     localPos.hasParagraphIndex = true;
   }
   return localPos;
+}
+
+void EpubReaderActivity::doAction(StrId actionName) {
+  switch (actionName) {
+    case StrId::STR_NEXT_PAGE_2:
+      nextPage();
+      break;
+    case StrId::STR_PREV_PAGE_2:
+      previousPage();
+      break;
+    case StrId::STR_NEXT_CHAPTER:
+      nextChapter();
+      break;
+    case StrId::STR_PREV_CHAPTER:
+      previousChapter();
+      break;
+    case StrId::STR_READER_MENU:
+      enterReaderMenu();
+      break;
+    case StrId::STR_BROWSE_FILES:
+      enterBrowseFiles();
+      break;
+    case StrId::STR_HOME_2:
+      enterHome();
+      break;
+    case StrId::STR_ADD_BOOKMARK:
+      addBookmark();
+      break;
+    case StrId::STR_FOOTNOTES:
+      enterFootnote();
+      break;
+    case StrId::STR_LONG_PRESS_BEHAVIOR_ORIENTATION:
+      changeOrientation();
+      break;
+  }
+}
+
+void EpubReaderActivity::nextPage() {}
+
+void EpubReaderActivity::previousPage() {}
+
+void EpubReaderActivity::nextChapter() {}
+
+void EpubReaderActivity::previousChapter() {}
+
+// Enter reader menu activity
+void EpubReaderActivity::enterReaderMenu() {
+  const int currentPage = section ? section->currentPage + 1 : 0;
+  const int totalPages = section ? section->pageCount : 0;
+  float bookProgress = 0.0f;
+  if (epub->getBookSize() > 0 && section && section->pageCount > 0) {
+    const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+    bookProgress = epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f;
+  }
+  const int bookProgressPercent = clampPercent(static_cast<int>(bookProgress + 0.5f));
+  startActivityForResult(std::make_unique<EpubReaderMenuActivity>(renderer, mappedInput, epub->getTitle(), currentPage,
+                                                                  totalPages, bookProgressPercent, SETTINGS.orientation,
+                                                                  !currentPageFootnotes.empty()),
+                         [this](const ActivityResult& result) {
+                           // Always apply orientation change even if the menu was cancelled
+                           const auto& menu = std::get<MenuResult>(result.data);
+                           applyOrientation(menu.orientation);
+                           toggleAutoPageTurn(menu.pageTurnOption);
+                           if (!result.isCancelled) {
+                             onReaderMenuConfirm(static_cast<EpubReaderMenuActivity::MenuAction>(menu.action));
+                           }
+                         });
+}
+
+void EpubReaderActivity::enterBrowseFiles() {
+  activityManager.goToFileBrowser(epub ? epub->getPath() : "");
+  return;
+}
+
+void EpubReaderActivity::enterHome() {
+  if (footnoteDepth > 0) {
+    restoreSavedPosition();
+    return;
+  }
+  onGoHome();
+  return;
+}
+
+void EpubReaderActivity::enterFootnote() {
+  if (footnoteDepth > 0) {
+    restoreSavedPosition();
+  } else {
+    if (currentPageFootnotes.size() == 1) {
+      navigateToHref(currentPageFootnotes[0].href, true);
+    } else if (currentPageFootnotes.size() > 1) {
+      startActivityForResult(std::make_unique<EpubReaderFootnotesActivity>(renderer, mappedInput, currentPageFootnotes),
+                             [this](const ActivityResult& result) {
+                               if (!result.isCancelled) {
+                                 const auto& footnoteResult = std::get<FootnoteResult>(result.data);
+                                 navigateToHref(footnoteResult.href, true);
+                               }
+                               requestUpdate();
+                             });
+    }
+  }
+  return;
+}
+// CONTROLNOTE - handle nextTriggered variable
+void EpubReaderActivity::changeOrientation() {
+  const uint8_t newOrientation =
+      nextTriggered ? (SETTINGS.orientation - 1 + SETTINGS.ORIENTATION_COUNT) % SETTINGS.ORIENTATION_COUNT
+                    : (SETTINGS.orientation + 1) % SETTINGS.ORIENTATION_COUNT;
+  applyOrientation(newOrientation);
+  requestUpdate();
+  return;
 }

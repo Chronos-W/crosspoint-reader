@@ -3,36 +3,39 @@
 #include <CrossPointSettings.h>
 #include <GfxRenderer.h>
 
+#include "JsonSettingsIO.h"
 #include "MappedInputManager.h"
 
-void ControlActionSettings::getAllowSleepAt(unsigned long sleepAt) { allowSleepAt = sleepAt; };
+// Initialize the static instance
+ControlActionSettings ControlActionSettings::instance;
 
-void ControlActionSettings::getRenderer(GfxRenderer& grenderer) { renderer = grenderer; }
+namespace {
+constexpr uint8_t CONTROLACTIONSETTINGS_FILE_VERSION = 1;
+constexpr char CONTROLACTIONSETTINGS_FILE_JSON[] = "/.crosspoint/controlactionsettings.json";
+}  // namespace
 
-void ControlActionSettings::takeScreenshotControlAction(GfxRenderer& renderer) {
-  RenderLock lock;
-  ScreenshotUtil::takeScreenshot(renderer);
-  return;
+void ControlActionSettings::readAndValidate(HalFile& file, uint8_t& member) {}
+
+bool ControlActionSettings::saveToFile() const {
+  return JsonSettingsIO::saveControlActionSettings(*this, CONTROLACTIONSETTINGS_FILE_JSON);
 }
 
-void ControlActionSettings::sleepControlAction() {
-  if (millis() >= allowSleepAt && gpio.isPressed(HalGPIO::BTN_POWER) &&
-      gpio.getPowerButtonHeldTime() > SETTINGS.getPowerButtonDuration()) {
-    // If the screenshot combination is potentially being pressed, don't sleep
-    if (gpio.isPressed(HalGPIO::BTN_DOWN)) {
-      return;
+bool ControlActionSettings::loadFromFile() {
+  // Try JSON first
+  if (Storage.exists(CONTROLACTIONSETTINGS_FILE_JSON)) {
+    String json = Storage.readFile(CONTROLACTIONSETTINGS_FILE_JSON);
+    if (!json.isEmpty()) {
+      bool resave = false;
+      bool result = JsonSettingsIO::loadControlActionSettings(*this, json.c_str(), &resave);
+      if (result && resave) {
+        if (saveToFile()) {
+          LOG_DBG("CPS", "Resaved control action settings to update format");
+        } else {
+          LOG_ERR("CPS", "Failed to resave control action settings after format update");
+        }
+      }
+      return result;
     }
-    enterDeepSleep();
-    // This should never be hit as `enterDeepSleep` calls esp_deep_sleep_start
-    return;
   }
-}
-
-void ControlActionSettings::forceRefreshControlAction() {
-  if (SETTINGS.shortPwrBtn == CrossPointSettings::SHORT_PWRBTN::FORCE_REFRESH &&
-      mappedInputManager.wasReleased(MappedInputManager::Button::Power)) {
-    LOG_DBG("MAIN", "Manual screen refresh triggered");
-    RenderLock lock;
-    renderer.displayBuffer(HalDisplay::HALF_REFRESH);
-  }
+  return false;
 }
